@@ -94,6 +94,9 @@
               :describe      (describe-to-string found‑sym))))))
 
 
+
+
+;;maybe for server
 (defun handle-eval-request (source-string
 			    &key (allowed-packages '("COMMON-LISP"))
 			      (bindings nil))
