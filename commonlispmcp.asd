@@ -8,4 +8,5 @@
   :serial t
   :depends-on (#:40ants-mcp #:openrpc-server)
   :components ((:file "package")
-               (:file "commonlispmcp")))
+               (:file "tools")
+	       (:file "commonlispmcp")))
