@@ -1,9 +1,5 @@
-# commonlispmcp
-### _Your Name <your.name@example.com>_
+An MCP server for Common Lisp development.
 
-This is a project to do ... something.
 
-## License
 
-Specify license here
-
+Come back later...
