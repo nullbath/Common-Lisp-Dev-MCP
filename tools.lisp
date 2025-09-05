@@ -25,13 +25,11 @@
 ;;
 
 ;;Evalute Common Lisp code
-(defun eval-form (form &optional (env (list (find-package "COMMON-LISP")))
-			 (bindings nil))
-  "Eval FORM in a tiny, controlled environment.
-   *env*   – list of packages that are made visible to the form.
-   *bindings* – alist of symbol → value that are temporarily bound
-               (e.g. to give the client a sandboxed *environment*)."
-  (let ((allowed-packages (mapcar #'find-package env)))
+(defun eval-form (source-string &optional (env '("COMMON-LISP")) (bindings nil))
+  "Evaluate the first Lisp form in SOURCE-STRING in a controlled environment.
+Returns a plist with :values, :error, and :output."
+  (let ((form (read-form-from-string source-string))
+        (allowed-packages (mapcar #'find-package env)))
     (labels ((allowedp (sym)
                (member (symbol-package sym) allowed-packages)))
       (let ((result nil)
@@ -39,16 +37,14 @@
             (error-data nil))
         (handler-case
             (progn
-              ;; Capture any printed output
               (with-output-to-string (out)
                 (let ((*standard-output* out)
                       (*debug-io* out)
                       (*error-output* out))
-                  ;; Bind only the symbols we want to expose
                   (let ((bindings* (if bindings
-				       (loop for (sym . val) in bindings
-					     do (setf (symbol-value sym) val))
-				       nil)))
+                                       (loop for (sym . val) in bindings
+                                             do (setf (symbol-value sym) val))
+                                       nil)))
                     (setf result (eval form))))
                 (setf printed-output (get-output-stream-string out))))
           (error (c)

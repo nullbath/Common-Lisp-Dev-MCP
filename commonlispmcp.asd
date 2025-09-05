@@ -7,6 +7,4 @@
   :version "0.0.1"
   :serial t
   :depends-on (#:40ants-mcp #:openrpc-server)
-  :components ((:file "package")
-               (:file "tools")
-	       (:file "commonlispmcp")))
+  )
