@@ -29,65 +29,89 @@
   "Evaluate the first Lisp form in SOURCE-STRING in a controlled environment.
 Returns a plist with :values, :error, and :output."
   (let ((form (read-form-from-string source-string))
-        (allowed-packages (mapcar #'find-package env)))
+	(allowed-packages (mapcar #'find-package env)))
     (labels ((allowedp (sym)
-               (member (symbol-package sym) allowed-packages)))
+	       (member (symbol-package sym) allowed-packages)))
       (let ((result nil)
-            (printed-output nil)
-            (error-data nil))
-        (handler-case
-            (progn
-              (with-output-to-string (out)
-                (let ((*standard-output* out)
-                      (*debug-io* out)
-                      (*error-output* out))
-                  (let ((bindings* (if bindings
-                                       (loop for (sym . val) in bindings
-                                             do (setf (symbol-value sym) val))
-                                       nil)))
-                    (setf result (eval form))))
-                (setf printed-output (get-output-stream-string out))))
-          (error (c)
-            (setf error-data (list :type (type-of c)
-                                   :message (error-message-string c)
-                                   :restarts (mapcar #'princ-to-string
-                                                     (compute-restarts c))))))
-        (result->plist (list :value (safe-princ-to-string result))
-                       :error error-data
-                       :output printed-output)))))
+	    (printed-output nil)
+	    (error-data nil))
+	(handler-case
+	    (progn
+	      (with-output-to-string (out)
+		(let ((*standard-output* out)
+		      (*debug-io* out)
+		      (*error-output* out))
+		  (let ((bindings* (if bindings
+				       (loop for (sym . val) in bindings
+					     do (setf (symbol-value sym) val))
+				       nil)))
+		    (setf result (eval form))))
+		(setf printed-output (get-output-stream-string out))))
+	  (error (c)
+	    (setf error-data (list :type (type-of c)
+				   :message (error-message-string c)
+				   :restarts (mapcar #'princ-to-string
+						     (compute-restarts c))))))
+	(result->plist (list :value (safe-princ-to-string result))
+		       :error error-data
+		       :output printed-output)))))
+
+
+;;Describe symbol
+(defun find-symbol-anywhere (name)
+  "Finds a symbol by name, handling package-qualified names."
+  (let* ((double-colon-pos (search "::" name))
+         (single-colon-pos (and (not double-colon-pos) (search ":" name))))
+    (cond
+      (double-colon-pos
+       (let* ((pkg-name (subseq name 0 double-colon-pos))
+              (sym-name (subseq name (+ double-colon-pos 2)))
+              (pkg (find-package pkg-name)))
+         (multiple-value-bind (sym foundp) (find-symbol sym-name pkg)
+           (when foundp sym))))
+      (single-colon-pos
+       (let* ((pkg-name (subseq name 0 single-colon-pos))
+              (sym-name (subseq name (1+ single-colon-pos)))
+              (pkg (find-package pkg-name)))
+         (multiple-value-bind (sym foundp) (find-symbol sym-name pkg)
+           (when foundp sym))))
+      (t
+       ;; No package prefix, search all packages
+       (let ((name (string-upcase name)))
+         (loop for pkg in (list-all-packages)
+               for (sym foundp) = (multiple-value-list (find-symbol name pkg))
+               when foundp return sym))))))
+
+(defun describe-symbol-anywhere (name)
+  (let ((sym (find-symbol-anywhere name)))
+    (if sym
+        (describe-to-string sym)
+        (format nil "Symbol ~A not found in any package." name))))
+
+;; To test
+(describe-symbol-anywhere "CL:CAR")
+(describe-symbol-anywhere "safe-princ-to-string")
 
 
 
-;;Describe a symbol
-(defun symbol-info (symbol &optional (pkg (find-package "COMMONLISPMCP")))
-  "Return a plist with useful information about SYMBOL (a symbol object or a
-   symbol name string).  PKG defaults to the current *default* package.
-   The result is ready to be turned into JSON, EDN, etc."
-  ;; 1) make sure we have a symbol object
-  (let ((sym (cond ((symbolp symbol) symbol)
-                   ((stringp symbol) (intern symbol pkg))
-                   (t (error "SYMBOL‑INFO: ~S is neither a symbol nor a string."
-                             symbol)))))
-    (multiple-value-bind (found‑sym status) (find-symbol (symbol-name sym) (symbol-package sym))
-      (declare (ignore status))   ; we already have the symbol, ignore the status
-      (let ((type (cond ((fboundp found‑sym)   :function)
-                        ((macro-function found‑sym) :macro)
-                        ((boundp found‑sym)   :variable)
-                        (t                    :unknown))))
-        (list :name          (symbol-name found‑sym)
-              :package       (package-name (symbol-package found‑sym))
-              :type          type
-              :value         (when (eq type :variable)
-                               (when (boundp found‑sym)
-                                 (symbol-value found‑sym)))
-              :function      (when (member type '(:function :macro))
-                               (symbol-function found‑sym))
-              :documentation (documentation found‑sym
-                                            (if (member type '(:function :macro))
-                                                'function
-                                                'variable))
-              :plist         (symbol-plist found‑sym)
-              :describe      (describe-to-string found‑sym))))))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
